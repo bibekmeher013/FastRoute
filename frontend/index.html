@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>FastRoute — Route Optimisation Platform</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+
+<!-- ═══ TOPBAR ══════════════════════════════════════════════════════════════ -->
+<header class="topbar">
+  <div class="topbar-brand">
+    <div class="brand-icon">⬡</div>
+    <div>
+      <span class="brand-name">FastRoute</span>
+      <span class="brand-sub">Route Optimisation Platform</span>
+    </div>
+    <span class="brand-version">v2.0</span>
+  </div>
+  <div class="topbar-center" id="statusBar">
+    <span class="status-dot" id="statusDot"></span>
+    <span id="statusText">Ready</span>
+  </div>
+  <div class="topbar-actions">
+    <button class="btn-icon" id="roadsToggle" title="Toggle road distances">🛣</button>
+    <button class="btn-icon" id="themeToggle" title="Toggle theme">🌙</button>
+    <button class="btn-icon" id="exportBtn" title="Export results">⬇</button>
+    <button class="btn-icon" id="resetBtn" title="Reset map">↺</button>
+  </div>
+</header>
+
+<!-- ═══ LAYOUT ══════════════════════════════════════════════════════════════ -->
+<div class="app-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+
+    <!-- MODE TABS -->
+    <div class="mode-selector">
+      <button class="mode-btn active path"    data-mode="path">PATH</button>
+      <button class="mode-btn tsp"            data-mode="tsp">TSP</button>
+      <button class="mode-btn cvrp"           data-mode="cvrp">CVRP</button>
+      <button class="mode-btn compare"        data-mode="compare">COMPARE</button>
+    </div>
+
+    <!-- INSTRUCTION -->
+    <div class="instruction-bar">
+      <div class="dot"></div>
+      <span id="instrText">Double-click map to set Start, then End point.</span>
+    </div>
+
+    <!-- ─── PATH PANEL ───────────────────────────────────────── -->
+    <div class="panel active" id="panel-path">
+      <div class="section">
+        <div class="section-label">Waypoints</div>
+        <div class="coord-row">
+          <div class="coord-box" id="box-start">
+            <div class="coord-icon">🟢</div>
+            <div class="coord-label">Start</div>
+            <div class="coord-val" id="startCoord">—</div>
+          </div>
+          <div class="coord-box" id="box-end">
+            <div class="coord-icon">🔴</div>
+            <div class="coord-label">End</div>
+            <div class="coord-val" id="endCoord">—</div>
+          </div>
+        </div>
+      </div>
+      <button class="solve-btn path-btn" id="solvePathBtn" data-label="⚡ Find Shortest Path">⚡ Find Shortest Path</button>
+      <div class="result-card hidden" id="pathResult"></div>
+    </div>
+
+    <!-- ─── TSP PANEL ────────────────────────────────────────── -->
+    <div class="panel" id="panel-tsp">
+      <div class="section">
+        <div class="section-label">Start Point</div>
+        <div class="coord-box wide" id="box-tsp-start">
+          <div class="coord-icon">🟢</div>
+          <div class="coord-label">TSP Origin</div>
+          <div class="coord-val" id="tspStartCoord">—</div>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-label">Stops</div>
+        <div class="loc-list">
+          <div class="loc-list-header">
+            <span class="loc-list-title">Destinations</span>
+            <span class="badge" id="tspBadge">0</span>
+          </div>
+          <div class="loc-list-body" id="tspList">
+            <div class="loc-empty">No stops added yet</div>
+          </div>
+        </div>
+      </div>
+      <button class="solve-btn tsp-btn" id="solveTspBtn" data-label="⚡ Solve TSP (OR-Tools)">⚡ Solve TSP (OR-Tools)</button>
+      <div class="result-card hidden" id="tspResult"></div>
+    </div>
+
+    <!-- ─── CVRP PANEL ───────────────────────────────────────── -->
+    <div class="panel" id="panel-cvrp">
+      <div class="section">
+        <div class="section-label">Depot</div>
+        <div class="coord-box wide" id="box-depot">
+          <div class="coord-icon">🟣</div>
+          <div class="coord-label">Depot Location</div>
+          <div class="coord-val" id="depotCoord">—</div>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-label">Customers</div>
+        <div class="loc-list">
+          <div class="loc-list-header">
+            <span class="loc-list-title">Delivery Points</span>
+            <span class="badge" id="cvrpBadge">0</span>
+          </div>
+          <div class="loc-list-body" id="cvrpList">
+            <div class="loc-empty">No customers yet</div>
+          </div>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-label">Fleet</div>
+        <div class="vehicles-box">
+          <div class="vehicles-header">
+            <span>Vehicles</span>
+            <button class="add-vehicle-btn" id="addVehicleBtn">+ Add</button>
+          </div>
+          <div class="vehicles-list" id="vehiclesList"></div>
+        </div>
+      </div>
+      <button class="solve-btn cvrp-btn" id="solveCvrpBtn" data-label="⚡ Solve CVRP">⚡ Solve CVRP</button>
+      <div class="result-card hidden" id="cvrpResult"></div>
+    </div>
+
+    <!-- ─── COMPARE PANEL ────────────────────────────────────── -->
+    <div class="panel" id="panel-compare">
+      <div class="section">
+        <div class="section-label">Benchmark Problems</div>
+        <div class="benchmark-grid">
+          <button class="bench-btn" data-bench="burma14">Burma 14</button>
+          <button class="bench-btn" data-bench="berlin52">Berlin 52</button>
+          <button class="bench-btn" data-bench="random20">Synthetic 20</button>
+          <button class="bench-btn" data-bench="custom">Use Map Points</button>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-label">Custom Points</div>
+        <div class="loc-list">
+          <div class="loc-list-header">
+            <span class="loc-list-title">Placed Points</span>
+            <span class="badge" id="compareBadge">0</span>
+          </div>
+          <div class="loc-list-body" id="compareList">
+            <div class="loc-empty">Double-click map to add points</div>
+          </div>
+        </div>
+      </div>
+      <button class="solve-btn compare-btn" id="solveCompareBtn" data-label="⚡ Run All Algorithms">⚡ Run All Algorithms</button>
+
+      <!-- Results table -->
+      <div class="compare-results hidden" id="compareResults">
+        <div class="section-label" style="margin-top:14px">Results</div>
+        <table class="compare-table" id="compareTable"></table>
+        <div class="section-label" style="margin-top:12px">Distance Chart</div>
+        <div class="chart-container">
+          <svg id="barChart" viewBox="0 0 280 160" xmlns="http://www.w3.org/2000/svg"></svg>
+        </div>
+        <div class="section-label" style="margin-top:12px">Time Chart</div>
+        <div class="chart-container">
+          <svg id="timeChart" viewBox="0 0 280 160" xmlns="http://www.w3.org/2000/svg"></svg>
+        </div>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- MAP -->
+  <div class="map-container">
+    <div id="map"></div>
+    <div class="map-hint" id="mapHint">Double-click to place points</div>
+    <div class="map-overlay" id="statsOverlay"></div>
+    <!-- Roads toggle badge -->
+    <div class="roads-badge" id="roadsBadge">📐 Haversine</div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="map.js"></script>
+</body>
+</html>
